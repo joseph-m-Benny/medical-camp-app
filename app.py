@@ -1,82 +1,114 @@
-import psycopg2
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, flash
+import sqlite3
 
 app = Flask(__name__)
+app.secret_key = "supersecretkey"
 
-# PostgreSQL connection
-conn = psycopg2.connect(
-    host="dpg-d3hhacffte5s73cuurfg-a.oregon-postgres.render.com",
-    database="medical_db_xt0e",
-    user="medical_db_xt0e_user",
-    password="PJu7N2oRdGMaTlhmiK4Ye4o9oMpXqdQa",
-    port="5432"
-)
-cursor = conn.cursor()
-
-# Create table if not exists
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS patients (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(100),
-    age INT,
-    gender VARCHAR(10),
-    contact VARCHAR(20)
-)
-""")
-conn.commit()
-
-@app.route('/')
-def home():
-    return render_template('index.html')
-
-@app.route('/add', methods=['GET', 'POST'])
-def add_patient():
-    if request.method == 'POST':
-        name = request.form['name']
-        age = request.form['age']
-        gender = request.form['gender']
-        contact = request.form['contact']
-
-        cursor.execute("""
-            INSERT INTO patients_details (name, age, gender, contact)
-            VALUES (%s, %s, %s, %s)
-        """, (name, age, gender, contact))
-        conn.commit()
-        return redirect(url_for('view_patients'))
-
-    return render_template('add.html')
-
-@app.route('/view')
-def view_patients():
-    cursor.execute("SELECT * FROM patients_details ORDER BY id ASC")
-    patients = cursor.fetchall()
-    return render_template('view.html', patients=patients)
-
-@app.route('/update/<int:id>', methods=['GET', 'POST'])
-def update_patient(id):
-    if request.method == 'POST':
-        name = request.form['name']
-        age = request.form['age']
-        gender = request.form['gender']
-        contact = request.form['contact']
-
-        cursor.execute("""
-            UPDATE patients_details
-            SET name=%s, age=%s, gender=%s, contact=%s
-            WHERE id=%s
-        """, (name, age, gender, contact, id))
-        conn.commit()
-        return redirect(url_for('view_patients'))
-
-    cursor.execute("SELECT * FROM patients_details WHERE id=%s", (id,))
-    patient = cursor.fetchone()
-    return render_template('update.html', patient=patient)
-
-@app.route('/delete/<int:id>')
-def delete_patient(id):
-    cursor.execute("DELETE FROM patients_details WHERE id=%s", (id,))
+# Database setup
+def init_db():
+    conn = sqlite3.connect("patients.db")
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS patients (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            age INTEGER NOT NULL,
+            disease TEXT NOT NULL
+        )
+    """)
     conn.commit()
-    return redirect(url_for('view_patients'))
+    conn.close()
 
-if __name__ == '__main__':
+init_db()
+
+# Home / Dashboard
+@app.route("/")
+def index():
+    return render_template("index.html")
+
+# Add patient
+@app.route("/add", methods=["GET", "POST"])
+def add_patient():
+    if request.method == "POST":
+        name = request.form["name"]
+        age = request.form["age"]
+        disease = request.form["disease"]
+
+        conn = sqlite3.connect("patients.db")
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO patients (name, age, disease) VALUES (?, ?, ?)", (name, age, disease))
+        conn.commit()
+        conn.close()
+        flash("Patient added successfully!", "success")
+        return redirect(url_for("index"))
+    return render_template("add.html")
+
+# Search patient
+@app.route("/search", methods=["GET", "POST"])
+def search_patient():
+    patient = None
+    if request.method == "POST":
+        patient_id = request.form["patient_id"]
+        conn = sqlite3.connect("patients.db")
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM patients WHERE id=?", (patient_id,))
+        patient = cursor.fetchone()
+        conn.close()
+        if not patient:
+            flash("Patient not found!", "danger")
+    return render_template("search.html", patient=patient)
+
+# Update patient
+@app.route("/update", methods=["GET", "POST"])
+def update_patient():
+    if request.method == "POST":
+        patient_id = request.form["patient_id"]
+        name = request.form.get("name")
+        age = request.form.get("age")
+        disease = request.form.get("disease")
+
+        conn = sqlite3.connect("patients.db")
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM patients WHERE id=?", (patient_id,))
+        patient = cursor.fetchone()
+        if patient:
+            if name: cursor.execute("UPDATE patients SET name=? WHERE id=?", (name, patient_id))
+            if age: cursor.execute("UPDATE patients SET age=? WHERE id=?", (age, patient_id))
+            if disease: cursor.execute("UPDATE patients SET disease=? WHERE id=?", (disease, patient_id))
+            conn.commit()
+            flash("Patient updated successfully!", "success")
+        else:
+            flash("Patient not found!", "danger")
+        conn.close()
+        return redirect(url_for("index"))
+    return render_template("update.html")
+
+# Delete patient
+@app.route("/delete", methods=["GET", "POST"])
+def delete_patient():
+    if request.method == "POST":
+        patient_id = request.form["patient_id"]
+        conn = sqlite3.connect("patients.db")
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM patients WHERE id=?", (patient_id,))
+        if cursor.rowcount == 0:
+            flash("Patient not found!", "danger")
+        else:
+            flash("Patient deleted successfully!", "success")
+        conn.commit()
+        conn.close()
+        return redirect(url_for("index"))
+    return render_template("delete.html")
+
+# View all patients
+@app.route("/view")
+def view_patients():
+    conn = sqlite3.connect("patients.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM patients")
+    patients = cursor.fetchall()
+    conn.close()
+    return render_template("view.html", patients=patients)
+
+if __name__ == "__main__":
     app.run(debug=True)
