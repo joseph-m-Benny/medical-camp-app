@@ -1,9 +1,9 @@
-from flask import Flask, render_template, request, redirect, url_for
 import psycopg2
+from flask import Flask, render_template, request, redirect, url_for
 
 app = Flask(__name__)
 
-# ✅ Connect to Render PostgreSQL
+# PostgreSQL connection
 conn = psycopg2.connect(
     host="dpg-d3hhacffte5s73cuurfg-a.oregon-postgres.render.com",
     database="medical_db_xt0e",
@@ -13,15 +13,15 @@ conn = psycopg2.connect(
 )
 cursor = conn.cursor()
 
-# ✅ Create patients_details table if not exists
+# Create table if not exists
 cursor.execute("""
-CREATE TABLE IF NOT EXISTS patients_details (
+CREATE TABLE IF NOT EXISTS patients (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100),
     age INT,
     gender VARCHAR(10),
     contact VARCHAR(20)
-);
+)
 """)
 conn.commit()
 
