@@ -110,5 +110,10 @@ def view():
     return render_template('view.html', patients=patients)
 
 if __name__ == '__main__':
-    init_db()
-    app.run(debug=True)
+    with app.app_context():
+        init_db()
+    app.run(host='0.0.0.0', port=10000)
+else:
+    # Ensure DB is created when running on Render
+    with app.app_context():
+        init_db()
