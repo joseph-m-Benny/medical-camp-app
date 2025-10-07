@@ -65,39 +65,44 @@ def search():
         searched = True
     return render_template('search.html', patient=patient, searched=searched)
 
-# Update patient
 @app.route('/update', methods=['GET', 'POST'])
 def update():
     if request.method == 'POST':
-        pid = request.form['id']
-        name = request.form['name']
-        age = request.form['age']
-        phone = request.form['phone']
-        address = request.form['address']
-        disease = request.form['disease']
+        pid = request.form.get('id')
+        if not pid:
+            return "Bad Request: Missing ID", 400
 
-        conn = sqlite3.connect(DB_PATH)
+        name = request.form.get('name')
+        age = request.form.get('age')
+        phone = request.form.get('phone')
+        address = request.form.get('address')
+        disease = request.form.get('disease')
+
+        conn = sqlite3.connect('patients.db')
         cur = conn.cursor()
-        cur.execute("""
-            UPDATE patients SET name=?, age=?, phone=?, address=?, disease=? WHERE id=?
-        """, (name, age, phone, address, disease, pid))
+        cur.execute("""UPDATE patients SET name=?, age=?, phone=?, address=?, disease=? WHERE id=?""",
+                    (name, age, phone, address, disease, pid))
         conn.commit()
         conn.close()
         return render_template('update.html', success=True)
     return render_template('update.html')
 
-# Delete patient
+
 @app.route('/delete', methods=['GET', 'POST'])
 def delete():
     if request.method == 'POST':
-        pid = request.form['id']
-        conn = sqlite3.connect(DB_PATH)
+        pid = request.form.get('id')
+        if not pid:
+            return "Bad Request: Missing ID", 400
+
+        conn = sqlite3.connect('patients.db')
         cur = conn.cursor()
         cur.execute("DELETE FROM patients WHERE id=?", (pid,))
         conn.commit()
         conn.close()
         return render_template('delete.html', success=True)
     return render_template('delete.html')
+
 
 # View all patients
 @app.route('/view')
