@@ -1,11 +1,14 @@
 from flask import Flask, render_template, request, redirect
 import sqlite3
+import os
 
 app = Flask(__name__)
 
-# Initialize the database (SQLite for simplicity)
+DB_PATH = 'patients.db'
+
+# Initialize the database
 def init_db():
-    conn = sqlite3.connect('patients.db')
+    conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute('''
         CREATE TABLE IF NOT EXISTS patients (
@@ -35,16 +38,16 @@ def add():
         address = request.form['address']
         disease = request.form['disease']
 
-        conn = sqlite3.connect('patients.db')
+        conn = sqlite3.connect(DB_PATH)
         cur = conn.cursor()
         cur.execute("INSERT INTO patients (name, age, phone, address, disease) VALUES (?, ?, ?, ?, ?)",
                     (name, age, phone, address, disease))
         conn.commit()
-
         patient_id = cur.lastrowid
         conn.close()
 
-        return render_template('add.html', success=True, patient_id=patient_id, name=name, age=age, phone=phone, address=address, disease=disease)
+        return render_template('add.html', success=True, patient_id=patient_id,
+                               name=name, age=age, phone=phone, address=address, disease=disease)
     return render_template('add.html')
 
 # Search patient
@@ -54,7 +57,7 @@ def search():
     searched = False
     if request.method == 'POST':
         name = request.form['name']
-        conn = sqlite3.connect('patients.db')
+        conn = sqlite3.connect(DB_PATH)
         cur = conn.cursor()
         cur.execute("SELECT * FROM patients WHERE name = ?", (name,))
         patient = cur.fetchone()
@@ -73,7 +76,7 @@ def update():
         address = request.form['address']
         disease = request.form['disease']
 
-        conn = sqlite3.connect('patients.db')
+        conn = sqlite3.connect(DB_PATH)
         cur = conn.cursor()
         cur.execute("""
             UPDATE patients SET name=?, age=?, phone=?, address=?, disease=? WHERE id=?
@@ -88,7 +91,7 @@ def update():
 def delete():
     if request.method == 'POST':
         pid = request.form['id']
-        conn = sqlite3.connect('patients.db')
+        conn = sqlite3.connect(DB_PATH)
         cur = conn.cursor()
         cur.execute("DELETE FROM patients WHERE id=?", (pid,))
         conn.commit()
@@ -99,7 +102,7 @@ def delete():
 # View all patients
 @app.route('/view')
 def view():
-    conn = sqlite3.connect('patients.db')
+    conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute("SELECT * FROM patients")
     patients = cur.fetchall()
